@@ -10,7 +10,7 @@ RUN npm run build
 
 # Stage 2: Production Server
 FROM node:20-alpine AS runner
-WORKDIR /app
+WORKDIR /app/server
 
 # Copy server package and install production dependencies
 COPY server/package*.json ./
@@ -19,8 +19,8 @@ RUN npm ci --only=production
 # Copy server code
 COPY server/ ./
 
-# Copy built frontend assets to server/client/dist
-COPY --from=build-client /app/client/dist ./client/dist
+# Copy built frontend assets to /app/client/dist
+COPY --from=build-client /app/client/dist /app/client/dist
 
 EXPOSE 3001
 

@@ -138,16 +138,27 @@ app.delete('/api/snippets/:id', (req, res) => {
   }
 });
 
-// Serve frontend build if exists (for unified production server)
-const clientBuildPath = path.join(__dirname, '../client/dist');
+// Serve frontend build if exists (robust path resolution for both dev and Docker container)
+const possibleClientPaths = [
+  path.join(__dirname, '../client/dist'),
+  path.join(__dirname, 'client/dist'),
+  path.join(process.cwd(), '../client/dist'),
+  path.join(process.cwd(), 'client/dist')
+];
+
+let clientBuildPath = possibleClientPaths.find(p => fs.existsSync(p)) || possibleClientPaths[0];
+
 app.use(express.static(clientBuildPath));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
     return next();
   }
-  res.sendFile(path.join(clientBuildPath, 'index.html'), (err) => {
-    if (err) next();
-  });
+  const indexPath = path.join(clientBuildPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    next();
+  }
 });
 
 // WebSocket Handling for Realtime SSH Terminal & SFTP
