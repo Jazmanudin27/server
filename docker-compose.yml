@@ -14,4 +14,4 @@ services:
       - NODE_ENV=production
       - ENCRYPTION_KEY=my-super-secret-termius-key-2026
     volumes:
-      - ./server/data:/app/data
+      - ./server/data:/app/server/data
