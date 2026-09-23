@@ -35,6 +35,13 @@ const INITIAL_HOSTS = [
 
 const INITIAL_SNIPPETS = [
   {
+    id: 'snippet-0',
+    title: '🔄 Auto-Update TermiusWeb App',
+    category: 'Maintenance',
+    command: 'cd /opt/web-termius && git pull origin main && docker compose up -d --build',
+    description: 'Pulls latest code from GitHub and rebuilds the TermiusWeb Docker container.'
+  },
+  {
     id: 'snippet-1',
     title: 'System Info & Resource Usage',
     category: 'Monitoring',
