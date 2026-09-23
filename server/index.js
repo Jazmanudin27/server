@@ -5,6 +5,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { Client as SSHClient } from 'ssh2';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 import {
