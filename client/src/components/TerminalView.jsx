@@ -173,6 +173,17 @@ export default function TerminalView({ session, socket, onOpenSFTP }) {
       socket.emit('ssh:input', { sessionId: session.id, data });
     });
 
+    // Auto Copy on Drag / Text Selection (PuTTY / Termius Style)
+    const onSelectionDisposable = term.onSelectionChange(() => {
+      const selectedText = term.getSelection();
+      if (selectedText && selectedText.trim().length > 0) {
+        navigator.clipboard.writeText(selectedText).then(() => {
+          setStatusMessage('Copied selection to clipboard!');
+          setTimeout(() => setStatusMessage('SSH Session Active'), 1500);
+        }).catch(() => {});
+      }
+    });
+
     // Window & Terminal Resize Handler
     const handleResize = () => {
       if (fitAddonInstance.current && xtermInstance.current) {
@@ -193,6 +204,7 @@ export default function TerminalView({ session, socket, onOpenSFTP }) {
 
     return () => {
       onDataDisposable.dispose();
+      onSelectionDisposable.dispose();
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
       socket.off('ssh:data', handleSshData);
@@ -243,6 +255,20 @@ export default function TerminalView({ session, socket, onOpenSFTP }) {
         termCols: xtermInstance.current.cols || 80,
         termRows: xtermInstance.current.rows || 24
       });
+    }
+  };
+
+  const handleContextMenu = async (e) => {
+    e.preventDefault(); // Prevent browser context menu
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && socket) {
+        socket.emit('ssh:input', { sessionId: session.id, data: text });
+        setStatusMessage('Pasted from clipboard!');
+        setTimeout(() => setStatusMessage('SSH Session Active'), 1500);
+      }
+    } catch (err) {
+      console.warn('Right-click paste readText error:', err);
     }
   };
 
@@ -353,6 +379,7 @@ export default function TerminalView({ session, socket, onOpenSFTP }) {
       <div 
         className="flex-1 w-full relative overflow-hidden" 
         style={{ backgroundColor: THEMES[themeKey].background }}
+        onContextMenu={handleContextMenu}
       >
         <div ref={terminalRef} className="h-full w-full" />
       </div>
