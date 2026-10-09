@@ -14,8 +14,12 @@ import {
   Sliders,
   AlertTriangle,
   CheckCircle,
-  Copy
+  Copy,
+  Activity,
+  Cpu
 } from 'lucide-react';
+import QuickActionsBar from './QuickActionsBar.jsx';
+import SystemMonitorModal from './SystemMonitorModal.jsx';
 
 const THEMES = {
   dracula: {
@@ -86,6 +90,8 @@ export default function TerminalView({ session, socket, onOpenSFTP }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Connecting to SSH...');
   const [statusType, setStatusType] = useState('connecting'); // 'connecting' | 'connected' | 'error' | 'closed'
+  const [isMonitorOpen, setIsMonitorOpen] = useState(false);
+  const [quickStats, setQuickStats] = useState(null);
 
   useEffect(() => {
     if (!terminalRef.current || !socket) return;
@@ -162,11 +168,29 @@ export default function TerminalView({ session, socket, onOpenSFTP }) {
       }
     };
 
+    const handleStatsData = ({ sessionId, stats }) => {
+      if (sessionId === session.id && stats) {
+        setQuickStats({
+          cpu: stats.cpu?.usage ?? 0,
+          ram: stats.memory?.percent ?? 0,
+          rom: stats.disk?.root?.percent ?? 0
+        });
+      }
+    };
+
     socket.on('ssh:data', handleSshData);
     socket.on('ssh:status', handleSshStatus);
     socket.on('ssh:ready', handleSshReady);
     socket.on('ssh:error', handleSshError);
     socket.on('ssh:closed', handleSshClosed);
+    socket.on('sys:stats:data', handleStatsData);
+
+    // Initial background stats check
+    setTimeout(() => {
+      if (socket) {
+        socket.emit('sys:stats:fetch', { sessionId: session.id });
+      }
+    }, 2000);
 
     // Terminal Data (Keyboard typing) -> Socket
     const onDataDisposable = term.onData((data) => {
@@ -212,6 +236,7 @@ export default function TerminalView({ session, socket, onOpenSFTP }) {
       socket.off('ssh:ready', handleSshReady);
       socket.off('ssh:error', handleSshError);
       socket.off('ssh:closed', handleSshClosed);
+      socket.off('sys:stats:data', handleStatsData);
       term.dispose();
     };
   }, [session.id]);
@@ -342,6 +367,20 @@ export default function TerminalView({ session, socket, onOpenSFTP }) {
           </div>
 
           <button
+            onClick={() => setIsMonitorOpen(true)}
+            className="flex items-center space-x-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-cyan-300 rounded text-[11px] font-medium transition-colors border border-cyan-800/40"
+            title="Buka System Monitor Hardware (CPU, RAM, ROM)"
+          >
+            <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden sm:inline">Stats</span>
+            {quickStats && (
+              <span className="text-[10px] text-slate-400 hidden xl:inline">
+                ({quickStats.cpu}% / {quickStats.ram}%)
+              </span>
+            )}
+          </button>
+
+          <button
             onClick={() => onOpenSFTP(session)}
             className="p-1.5 hover:bg-slate-800 text-indigo-400 hover:text-indigo-300 rounded transition-colors"
             title="Open SFTP Browser for this session"
@@ -375,6 +414,20 @@ export default function TerminalView({ session, socket, onOpenSFTP }) {
         </div>
       </div>
 
+      {/* Quick Actions Button Bar (git pull, pm2 restart, docker, etc.) */}
+      <QuickActionsBar
+        onRunCommand={(cmd) => {
+          if (socket) {
+            socket.emit('ssh:input', { sessionId: session.id, data: cmd + '\n' });
+            if (xtermInstance.current) {
+              xtermInstance.current.focus();
+            }
+          }
+        }}
+        onOpenSystemMonitor={() => setIsMonitorOpen(true)}
+        quickStats={quickStats}
+      />
+
       {/* Main Terminal Container */}
       <div 
         className="flex-1 w-full relative overflow-hidden" 
@@ -383,6 +436,22 @@ export default function TerminalView({ session, socket, onOpenSFTP }) {
       >
         <div ref={terminalRef} className="h-full w-full" />
       </div>
+
+      {/* System Hardware Monitor Modal */}
+      <SystemMonitorModal
+        isOpen={isMonitorOpen}
+        onClose={() => setIsMonitorOpen(false)}
+        session={session}
+        socket={socket}
+        onRunCommandInTerminal={(cmd) => {
+          if (socket) {
+            socket.emit('ssh:input', { sessionId: session.id, data: cmd + '\n' });
+            if (xtermInstance.current) {
+              xtermInstance.current.focus();
+            }
+          }
+        }}
+      />
     </div>
   );
 }

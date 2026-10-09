@@ -6,6 +6,7 @@ export default function HostList({
   hosts, 
   onConnectSSH, 
   onOpenSFTP, 
+  onOpenMonitor,
   onEditHost, 
   onDeleteHost, 
   onAddHost,
@@ -93,6 +94,7 @@ export default function HostList({
               host={host}
               onConnectSSH={onConnectSSH}
               onOpenSFTP={onOpenSFTP}
+              onOpenMonitor={onOpenMonitor}
               onEdit={onEditHost}
               onDelete={onDeleteHost}
               onTestConnection={onTestConnection}

@@ -9,13 +9,15 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Loader2, 
-  ShieldCheck, 
+  ShieldCheck,
   Copy,
   MoreVertical,
-  ExternalLink
+  ExternalLink,
+  Cpu,
+  Activity
 } from 'lucide-react';
 
-export default function HostCard({ host, onConnectSSH, onOpenSFTP, onEdit, onDelete, onTestConnection }) {
+export default function HostCard({ host, onConnectSSH, onOpenSFTP, onOpenMonitor, onEdit, onDelete, onTestConnection }) {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null); // { success: boolean, message: string }
   const [copied, setCopied] = useState(false);
@@ -143,6 +145,15 @@ export default function HostCard({ host, onConnectSSH, onOpenSFTP, onEdit, onDel
         >
           {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" /> : <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />}
           <span>Test</span>
+        </button>
+
+        <button
+          onClick={() => onOpenMonitor && onOpenMonitor(host)}
+          className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-cyan-300 rounded-xl text-xs font-medium transition-all flex items-center space-x-1.5 border border-cyan-800/40"
+          title="Lihat CPU, RAM, ROM, dan Metrik Server"
+        >
+          <Cpu className="w-3.5 h-3.5" />
+          <span>Stats</span>
         </button>
 
         <button

@@ -8,6 +8,7 @@ import SFTPExplorer from './components/SFTPExplorer.jsx';
 import SnippetManager from './components/SnippetManager.jsx';
 import AddHostModal from './components/AddHostModal.jsx';
 import QuickConnectModal from './components/QuickConnectModal.jsx';
+import SystemMonitorModal from './components/SystemMonitorModal.jsx';
 
 // Determine backend socket server URL
 const SOCKET_URL = import.meta.env.DEV ? 'http://localhost:3001' : window.location.origin;
@@ -34,6 +35,7 @@ export default function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [hostToEdit, setHostToEdit] = useState(null);
   const [isQuickModalOpen, setIsQuickModalOpen] = useState(false);
+  const [monitorTargetHost, setMonitorTargetHost] = useState(null);
 
   // Initialize Socket.io connection
   useEffect(() => {
@@ -275,6 +277,7 @@ export default function App() {
               hosts={hosts}
               onConnectSSH={handleConnectSSH}
               onOpenSFTP={handleOpenSFTP}
+              onOpenMonitor={(host) => setMonitorTargetHost(host)}
               onEditHost={(host) => {
                 setHostToEdit(host);
                 setIsAddModalOpen(true);
@@ -357,6 +360,22 @@ export default function App() {
         isOpen={isQuickModalOpen}
         onClose={() => setIsQuickModalOpen(false)}
         onConnect={handleQuickConnect}
+      />
+
+      {/* System Monitor Modal from Host Card */}
+      <SystemMonitorModal
+        isOpen={!!monitorTargetHost}
+        onClose={() => setMonitorTargetHost(null)}
+        host={monitorTargetHost}
+        socket={socket}
+        onRunCommandInTerminal={(cmd) => {
+          if (monitorTargetHost) {
+            handleConnectSSH(monitorTargetHost);
+            setTimeout(() => {
+              handleRunSnippet(cmd);
+            }, 1000);
+          }
+        }}
       />
     </div>
   );

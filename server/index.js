@@ -17,6 +17,7 @@ import {
   saveSnippet,
   deleteSnippet
 } from './storage.js';
+import { getSystemStats, executeStandaloneCommand, execOnClient } from './sysMonitor.js';
 
 dotenv.config();
 
@@ -113,6 +114,87 @@ app.post('/api/hosts/test', (req, res) => {
       clearTimeout(timeout);
       res.status(400).json({ success: false, error: err.message });
     }
+  }
+});
+
+// System Monitor Stats by Host ID
+app.get('/api/hosts/:id/stats', async (req, res) => {
+  const host = getHostById(req.params.id, true);
+  if (!host) {
+    return res.status(404).json({ error: 'Host not found' });
+  }
+
+  // Check if there is an active session for this host
+  let activeSess = null;
+  for (const sess of activeSessions.values()) {
+    if (sess.hostInfo && (sess.hostInfo.host === (host.ip || host.hostname))) {
+      activeSess = sess;
+      break;
+    }
+  }
+
+  try {
+    if (activeSess && activeSess.client) {
+      const stats = await getSystemStats(activeSess.client);
+      return res.json({ success: true, stats });
+    } else {
+      const conn = new SSHClient();
+      let connected = false;
+      await new Promise((resolve, reject) => {
+        conn.on('ready', async () => {
+          connected = true;
+          try {
+            const stats = await getSystemStats(conn);
+            conn.end();
+            res.json({ success: true, stats });
+            resolve();
+          } catch (err) {
+            conn.end();
+            reject(err);
+          }
+        });
+        conn.on('error', (err) => {
+          if (!connected) reject(err);
+        });
+        conn.connect({
+          host: host.ip || host.hostname,
+          port: parseInt(host.port || 22),
+          username: host.username || 'root',
+          password: host.password,
+          privateKey: host.privateKey,
+          readyTimeout: 12000
+        });
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Execute Quick Action Command on Host
+app.post('/api/hosts/:id/exec', async (req, res) => {
+  const { command } = req.body;
+  if (!command) {
+    return res.status(400).json({ error: 'Command is required' });
+  }
+
+  const host = getHostById(req.params.id, true);
+  if (!host) {
+    return res.status(404).json({ error: 'Host not found' });
+  }
+
+  try {
+    const result = await executeStandaloneCommand({
+      ip: host.ip || host.hostname,
+      port: host.port || 22,
+      username: host.username || 'root',
+      password: host.password,
+      privateKey: host.privateKey
+    }, command, 30000);
+
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -366,6 +448,88 @@ io.on('connection', (socket) => {
         }
       });
     });
+  });
+
+  // Real-time System Hardware Metrics (CPU, RAM, ROM/Disk, OS, Processes)
+  socket.on('sys:stats:fetch', async ({ sessionId, hostId }) => {
+    let client = null;
+    const sess = activeSessions.get(sessionId);
+    if (sess && sess.client) {
+      client = sess.client;
+    }
+
+    if (client) {
+      try {
+        const stats = await getSystemStats(client);
+        socket.emit('sys:stats:data', { sessionId, hostId, stats });
+      } catch (err) {
+        socket.emit('sys:stats:error', { sessionId, hostId, error: err.message });
+      }
+    } else if (hostId) {
+      const host = getHostById(hostId, true);
+      if (!host) {
+        socket.emit('sys:stats:error', { sessionId, hostId, error: 'Host profile not found' });
+        return;
+      }
+      const conn = new SSHClient();
+      let connected = false;
+      const timer = setTimeout(() => {
+        if (!connected) {
+          conn.end();
+          socket.emit('sys:stats:error', { sessionId, hostId, error: 'SSH connection timeout' });
+        }
+      }, 10000);
+
+      conn.on('ready', async () => {
+        connected = true;
+        clearTimeout(timer);
+        try {
+          const stats = await getSystemStats(conn);
+          conn.end();
+          socket.emit('sys:stats:data', { sessionId, hostId, stats });
+        } catch (err) {
+          conn.end();
+          socket.emit('sys:stats:error', { sessionId, hostId, error: err.message });
+        }
+      });
+
+      conn.on('error', (err) => {
+        clearTimeout(timer);
+        socket.emit('sys:stats:error', { sessionId, hostId, error: err.message });
+      });
+
+      try {
+        conn.connect({
+          host: host.ip || host.hostname,
+          port: parseInt(host.port || 22),
+          username: host.username || 'root',
+          password: host.password,
+          privateKey: host.privateKey,
+          readyTimeout: 10000
+        });
+      } catch (err) {
+        clearTimeout(timer);
+        socket.emit('sys:stats:error', { sessionId, hostId, error: err.message });
+      }
+    } else {
+      socket.emit('sys:stats:error', { sessionId, hostId, error: 'No active session or host specified' });
+    }
+  });
+
+  // Background Exec for Quick Action Buttons
+  socket.on('sys:exec', async ({ sessionId, command, actionId }) => {
+    const sess = activeSessions.get(sessionId);
+    if (!sess || !sess.client) {
+      socket.emit('sys:exec:res', { sessionId, actionId, success: false, error: 'Session not active' });
+      return;
+    }
+
+    try {
+      const res = await execOnClient(sess.client, command, 30000);
+      socket.emit('sys:exec:res', { sessionId, actionId, success: res.code === 0, ...res });
+    } catch (err) {
+      socket.emit('sys:exec:res', { sessionId, actionId, success: false, error: err.message });
+    }
   });
 
   socket.on('disconnect', () => {
