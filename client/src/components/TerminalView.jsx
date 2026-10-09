@@ -80,7 +80,7 @@ const THEMES = {
   }
 };
 
-export default function TerminalView({ session, socket, onOpenSFTP }) {
+export default function TerminalView({ session, socket, onOpenSFTP, isActive = true }) {
   const terminalRef = useRef(null);
   const xtermInstance = useRef(null);
   const fitAddonInstance = useRef(null);
@@ -92,6 +92,19 @@ export default function TerminalView({ session, socket, onOpenSFTP }) {
   const [statusType, setStatusType] = useState('connecting'); // 'connecting' | 'connected' | 'error' | 'closed'
   const [isMonitorOpen, setIsMonitorOpen] = useState(false);
   const [quickStats, setQuickStats] = useState(null);
+
+  // Auto-fit & focus when switching back to this active tab
+  useEffect(() => {
+    if (isActive && fitAddonInstance.current && xtermInstance.current) {
+      const timer = setTimeout(() => {
+        try {
+          fitAddonInstance.current.fit();
+          xtermInstance.current.focus();
+        } catch (e) {}
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [isActive]);
 
   useEffect(() => {
     if (!terminalRef.current || !socket) return;

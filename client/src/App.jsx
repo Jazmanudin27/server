@@ -292,27 +292,35 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'terminal' && (
-          <div className="h-full w-full">
-            {activeSession ? (
+        {/* Terminal Sessions Container (Preserved in DOM to prevent disconnect & loss of history) */}
+        <div className={`h-full w-full relative ${activeTab === 'terminal' ? 'block' : 'hidden'}`}>
+          {sessions.map((sess) => (
+            <div
+              key={sess.id}
+              className={`h-full w-full absolute inset-0 ${
+                activeSessionId === sess.id ? 'block z-10' : 'hidden z-0 pointer-events-none'
+              }`}
+            >
               <TerminalView
-                session={activeSession}
+                session={sess}
                 socket={socket}
                 onOpenSFTP={handleOpenSFTP}
+                isActive={activeTab === 'terminal' && activeSessionId === sess.id}
               />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                <p>No active SSH terminal tab selected.</p>
-                <button
-                  onClick={() => setActiveTab('hosts')}
-                  className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold"
-                >
-                  Select Server Host
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+            </div>
+          ))}
+          {sessions.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full text-slate-500">
+              <p>No active SSH terminal tab selected.</p>
+              <button
+                onClick={() => setActiveTab('hosts')}
+                className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold"
+              >
+                Select Server Host
+              </button>
+            </div>
+          )}
+        </div>
 
         {activeTab === 'sftp' && (
           <div className="h-full w-full">
