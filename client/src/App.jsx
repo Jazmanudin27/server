@@ -272,7 +272,7 @@ export default function App() {
       {/* Main Content Area depending on active tab */}
       <main className="flex-1 relative overflow-hidden">
         {activeTab === 'hosts' && (
-          <div className="h-full overflow-y-auto">
+          <div className="h-full overflow-y-auto relative z-30 bg-slate-950">
             <HostList
               hosts={hosts}
               onConnectSSH={handleConnectSSH}
@@ -293,22 +293,33 @@ export default function App() {
         )}
 
         {/* Terminal Sessions Container (Preserved in DOM to prevent disconnect & loss of history) */}
-        <div className={`h-full w-full relative ${activeTab === 'terminal' ? 'block' : 'hidden'}`}>
-          {sessions.map((sess) => (
-            <div
-              key={sess.id}
-              className={`h-full w-full absolute inset-0 ${
-                activeSessionId === sess.id ? 'block z-10' : 'hidden z-0 pointer-events-none'
-              }`}
-            >
-              <TerminalView
-                session={sess}
-                socket={socket}
-                onOpenSFTP={handleOpenSFTP}
-                isActive={activeTab === 'terminal' && activeSessionId === sess.id}
-              />
-            </div>
-          ))}
+        <div 
+          className={`h-full w-full absolute inset-0 ${
+            activeTab === 'terminal' 
+              ? 'visible opacity-100 z-10 pointer-events-auto' 
+              : 'invisible opacity-0 z-0 pointer-events-none'
+          }`}
+        >
+          {sessions.map((sess) => {
+            const isTabActive = activeTab === 'terminal' && activeSessionId === sess.id;
+            return (
+              <div
+                key={sess.id}
+                className={`h-full w-full absolute inset-0 ${
+                  isTabActive
+                    ? 'visible opacity-100 z-20 pointer-events-auto'
+                    : 'invisible opacity-0 z-0 pointer-events-none'
+                }`}
+              >
+                <TerminalView
+                  session={sess}
+                  socket={socket}
+                  onOpenSFTP={handleOpenSFTP}
+                  isActive={isTabActive}
+                />
+              </div>
+            );
+          })}
           {sessions.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-slate-500">
               <p>No active SSH terminal tab selected.</p>
@@ -323,7 +334,7 @@ export default function App() {
         </div>
 
         {activeTab === 'sftp' && (
-          <div className="h-full w-full">
+          <div className="h-full w-full relative z-30 bg-slate-950">
             {sftpSession || activeSession ? (
               <SFTPExplorer
                 session={sftpSession || activeSession}
@@ -344,7 +355,7 @@ export default function App() {
         )}
 
         {activeTab === 'snippets' && (
-          <div className="h-full overflow-y-auto">
+          <div className="h-full overflow-y-auto relative z-30 bg-slate-950">
             <SnippetManager
               snippets={snippets}
               onSaveSnippet={handleSaveSnippet}

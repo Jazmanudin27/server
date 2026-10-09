@@ -345,7 +345,8 @@ io.on('connection', (socket) => {
   // Handle Terminal Resize
   socket.on('ssh:resize', ({ sessionId, cols, rows }) => {
     const sess = activeSessions.get(sessionId);
-    if (sess && sess.stream && cols > 0 && rows > 0) {
+    // Sanity check: prevent tiny/zero columns from crushing terminal text
+    if (sess && sess.stream && cols >= 20 && rows >= 5) {
       sess.stream.setWindow(rows, cols, 0, 0);
     }
   });

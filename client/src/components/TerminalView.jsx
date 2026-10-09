@@ -95,13 +95,22 @@ export default function TerminalView({ session, socket, onOpenSFTP, isActive = t
 
   // Auto-fit & focus when switching back to this active tab
   useEffect(() => {
-    if (isActive && fitAddonInstance.current && xtermInstance.current) {
+    if (isActive && fitAddonInstance.current && xtermInstance.current && terminalRef.current) {
       const timer = setTimeout(() => {
         try {
-          fitAddonInstance.current.fit();
+          const w = terminalRef.current.clientWidth;
+          const h = terminalRef.current.clientHeight;
+          if (w >= 100 && h >= 100) {
+            fitAddonInstance.current.fit();
+            const cols = xtermInstance.current.cols;
+            const rows = xtermInstance.current.rows;
+            if (cols >= 20 && rows >= 5 && socket) {
+              socket.emit('ssh:resize', { sessionId: session.id, cols, rows });
+            }
+          }
           xtermInstance.current.focus();
         } catch (e) {}
-      }, 60);
+      }, 100);
       return () => clearTimeout(timer);
     }
   }, [isActive]);
@@ -223,12 +232,20 @@ export default function TerminalView({ session, socket, onOpenSFTP, isActive = t
 
     // Window & Terminal Resize Handler
     const handleResize = () => {
-      if (fitAddonInstance.current && xtermInstance.current) {
+      if (!isActive) return;
+      if (fitAddonInstance.current && xtermInstance.current && terminalRef.current) {
+        const w = terminalRef.current.clientWidth;
+        const h = terminalRef.current.clientHeight;
+        // Don't resize if hidden or container too small
+        if (w < 100 || h < 100) return;
+
         try {
           fitAddonInstance.current.fit();
           const cols = xtermInstance.current.cols;
           const rows = xtermInstance.current.rows;
-          socket.emit('ssh:resize', { sessionId: session.id, cols, rows });
+          if (cols >= 20 && rows >= 5 && socket) {
+            socket.emit('ssh:resize', { sessionId: session.id, cols, rows });
+          }
         } catch (e) {
           // ignore fit error during tab switch
         }
